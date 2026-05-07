@@ -8,6 +8,8 @@ Script to show data flowing from Interception
 
 OutputDebug DBGVIEWCLEAR
 
+OnMessage(0x219, "WM_DEVICECHANGE")
+
 Gui, Margin, 0, 0
 DeviceList := {}
 filterMouseMove := 1
@@ -97,6 +99,10 @@ lowest += 2 * MarginY
 
 Gui, Add, Button, % "x" columnX.K " y" lowest " w" totalWidths.K " Center gClearKeyboard", Clear
 Gui, Add, Button, % "x" columnX.M " yp w" totalWidths.M " gClearMouse Center", Clear
+
+lowest += 30
+
+Gui, Add, Button, % "x" columnX.K " y" lowest " w" (columnX.M + totalWidths.M - columnX.K) " Center gRefresh", Refresh Devices (Reload)
 
 lowest += 30
 
@@ -194,6 +200,17 @@ ClearMouse:
 	Gui, ListView, % hLvMouse
 	LV_Delete()
 	return
+
+Refresh:
+	Reload
+	return
+
+WM_DEVICECHANGE(wParam, lParam) {
+	; DBT_DEVICEARRIVAL = 0x8000, DBT_DEVICEREMOVECOMPLETE = 0x8004
+	if (wParam = 0x8000 || wParam = 0x8004) {
+		SetTimer, Refresh, -1000
+	}
+}
 
 FormatHex(num){
 	return Format("{:04X}", num)

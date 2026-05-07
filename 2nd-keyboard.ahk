@@ -6,13 +6,50 @@ SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 #Persistent
 #include <AutoHotInterception>
 
-AHI := new AutoHotInterception()
+global AHI := new AutoHotInterception()
+global macroKeyboardId := 0
+global isSelecting := true
+global subscribedIds := []
 
-keyboardId := AHI.GetKeyboardId(0x413C, 0x2003)
-AHI.SubscribeKeyboard(keyboardId, true, Func("KeyEvent"))
+Gui, +AlwaysOnTop -MaximizeBox -MinimizeBox
+Gui, Font, s12
+Gui, Add, Text, w350 Center, Please press any key on the keyboard`nyou want to use as the Macro Keyboard.
+Gui, Show, , Select Macro Keyboard
+
+DeviceList := AHI.GetDeviceList()
+Loop 10 {
+	if (IsObject(DeviceList[A_Index])) {
+		AHI.SubscribeKeyboard(A_Index, false, Func("SelectionEvent").Bind(A_Index))
+		subscribedIds.Push(A_Index)
+	}
+}
 
 return
 
+GuiClose:
+	if (isSelecting)
+		ExitApp
+	return
+
+SelectionEvent(id, code, state){
+	global AHI, macroKeyboardId, isSelecting, subscribedIds
+	if (isSelecting && state = 1) {
+		isSelecting := false
+		macroKeyboardId := id
+		
+		; Unsubscribe all keyboards from the selection event
+		For index, subId in subscribedIds {
+			AHI.UnsubscribeKeyboard(subId)
+		}
+		subscribedIds := []
+		
+		Gui, Destroy
+		TrayTip, Macro Keyboard, Keyboard ID %id% selected as macro keyboard., 3000
+		
+		; Subscribe to the selected keyboard and block its normal input
+		AHI.SubscribeKeyboard(macroKeyboardId, true, Func("KeyEvent"))
+	}
+}
 
 ; wrtie marcro keyboard command in this
 KeyEvent(code, state){

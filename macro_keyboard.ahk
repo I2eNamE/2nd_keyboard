@@ -11,51 +11,80 @@ global isMacroEnabled := false
 global isSelecting := false
 global subscribedIds := []
 global macros := {} ; Format: macros[scanCode] := {type: "Program", data: "...", keyName: "..."}
+global hwndHdr1 := 0, hwndHdr2 := 0, hwndHdrLine := 0
 
-; Register device change listener
+; Register message listeners
 OnMessage(0x0219, "WM_DEVICECHANGE")
 
 ; ---------------------------------------------------------
-; GUI Creation
+; GUI Creation - Clean Light Theme
 ; ---------------------------------------------------------
 Gui, +AlwaysOnTop -MaximizeBox
-Gui, Font, s10, Segoe UI
+Gui, Color, FFFFFF
 
-; Status section
-Gui, Add, GroupBox, x10 y10 w420 h80, Macro Keyboard Status
-Gui, Add, Text, x20 y35 w250 vStatusText, Status: Macro Disabled
-Gui, Add, Text, x20 y60 w250 vKeyboardText, Keyboard: None Selected
+; === TOP BAR ===
+; Use Progress controls to simulate colored button backgrounds
+Gui, Add, Progress, x20 y20 w140 h36 Background1a2b7a Disabled
+Gui, Font, s10 Bold cFFFFFF, Segoe UI
+Gui, Add, Text, x20 y20 w140 h36 gSelectKeyboard vSelectBtn BackgroundTrans Center +0x200, Select Keyboard
 
-Gui, Add, Button, x280 y30 w130 h40 gToggleMacro vToggleBtn, Enable Macro
+Gui, Add, Progress, x170 y20 w110 h36 Background85c1e9 Disabled vBgToggle
+Gui, Font, s10 Norm cFFFFFF, Segoe UI
+Gui, Add, Text, x170 y20 w110 h36 gToggleMacro vToggleBtn BackgroundTrans Center +0x200, Enable Macro
 
-; Configuration Section
-Gui, Add, GroupBox, x10 y100 w420 h180, Configured Macros (Template)
-Gui, Add, ListView, x20 y125 w400 h140 vMacroList gOnMacroListEvent, Scan Code|Key Name|Action Type|Data
-LV_ModifyCol(1, 80)
-LV_ModifyCol(2, 80)
-LV_ModifyCol(3, 80)
-LV_ModifyCol(4, 150)
+; Toggle switch area
+Gui, Font, s9 c000000, Segoe UI
+Gui, Add, GroupBox, x390 y10 w70 h46, Macro
+Gui, Add, Checkbox, x400 y30 w50 h20 vMacroToggle gToggleSwitchCheck, off
 
-; Edit/Add Section
-Gui, Add, GroupBox, x10 y290 w420 h160, Edit / Add Macro
-Gui, Add, Text, x20 y320, Press Key:
-Gui, Add, Hotkey, x95 y315 w100 vInputKey, 
+Gui, Font, s9 c000000, Segoe UI
+Gui, Add, Text, x470 y20 w120 vStatusLabel, Macro Status:`nDisabled
 
-Gui, Add, Text, x20 y355, Action Type:
-Gui, Add, DropDownList, x95 y350 w100 vActionType, Program||Website|Text
+; Top separator (Light grey)
+Gui, Add, Text, x20 y75 w580 h1 BackgroundEAEAEA,
 
-Gui, Add, Text, x20 y390, Action Data:
-Gui, Add, Edit, x95 y385 w315 vActionData
+; === LEFT COLUMN: Configured Macros ===
+Gui, Font, s14 Bold c111111, Segoe UI
+Gui, Add, Text, x20 y90, Configured Macros
+Gui, Font, s10 c333333, Segoe UI
+; No headers, flat border
+Gui, Add, ListView, x20 y125 w280 h320 vMacroList gOnMacroListEvent -Hdr -E0x200 AltSubmit, Desc|SC
+LV_ModifyCol(1, 270)
+LV_ModifyCol(2, 0)
 
-Gui, Add, Button, x95 y415 w100 h30 gSaveKeyMacro, Save Key
-Gui, Add, Button, x205 y415 w100 h30 gDeleteKeyMacro, Delete Key
+; Edit / Delete row buttons
+Gui, Font, s9 Norm c333333, Segoe UI
+Gui, Add, Button, x20 y455 w90 h28 gOnEditSelected, Edit
+Gui, Add, Button, x120 y455 w90 h28 gDeleteKeyMacro, Delete
 
-; Bottom Controls
-Gui, Add, Button, x10 y465 w120 h40 gSelectKeyboard vSelectBtn, Select Keyboard
-Gui, Add, Button, x160 y465 w120 h40 gSaveConfigToFile, Save Config
-Gui, Add, Button, x310 y465 w120 h40 gLoadConfigFromFile, Load Config
+; Vertical separator (Light grey)
+Gui, Add, Text, x320 y90 w1 h390 BackgroundEAEAEA,
 
-Gui, Show, w440 h515, Macro Keyboard Manager
+; === RIGHT COLUMN: Edit / Add Macro ===
+Gui, Font, s14 Bold c111111, Segoe UI
+Gui, Add, Text, x340 y90, Edit / Add Macro
+
+Gui, Font, s10 Norm c111111, Segoe UI
+Gui, Add, Text, x340 y130, Step 1: Press Key
+Gui, Add, Hotkey, x340 y150 w260 h30 vInputKey,
+
+Gui, Add, Text, x340 y195, Step 2: Action
+Gui, Add, DropDownList, x340 y215 w260 vActionType, Program||Website|Text
+
+Gui, Add, Text, x340 y260, Step 3: Details
+Gui, Add, Edit, x340 y280 w260 h30 vActionData,
+
+Gui, Font, s10 Bold c1a2b7a, Segoe UI
+Gui, Add, Text, x340 y330 w130 h36 gSaveKeyMacro Border Center +0x200, + Add to Config
+Gui, Font, s10 Norm c111111, Segoe UI
+Gui, Add, Text, x480 y330 w80 h36 gClearForm Center +0x200, - Clear
+
+; Save / Load Config (bottom right)
+Gui, Font, s10 Norm c1a2b7a, Segoe UI
+Gui, Add, Text, x390 y455 w100 h30 gSaveConfigToFile Center +0x200, Save Config
+Gui, Add, Text, x500 y455 w100 h30 gLoadConfigFromFile Center +0x200, Load Config
+
+Gui, Show, w620 h510, Macro Keyboard Manager
 return
 
 GuiClose:
@@ -85,8 +114,11 @@ EnableMacro:
     ; Always unsubscribe first to avoid duplicate subscriptions
     AHI.UnsubscribeKeyboard(macroKeyboardId)
     isMacroEnabled := true
-    GuiControl,, StatusText, Status: Macro Enabled
+    GuiControl, +Backgrounde74c3c, BgToggle ; Change background to red when enabled
     GuiControl,, ToggleBtn, Disable Macro
+    GuiControl,, StatusLabel, Macro Status:`nEnabled
+    GuiControl,, MacroToggle, 1
+    GuiControl, Text, MacroToggle, on
     AHI.SubscribeKeyboard(macroKeyboardId, true, Func("OnMacroKeyEvent"))
     TrayTip, Macro Enabled, Macro mode is ON., 2
 return
@@ -94,9 +126,20 @@ return
 DisableMacro:
     isMacroEnabled := false
     AHI.UnsubscribeKeyboard(macroKeyboardId)
-    GuiControl,, StatusText, Status: Macro Disabled
+    GuiControl, +Background85c1e9, BgToggle ; Restore light blue background
     GuiControl,, ToggleBtn, Enable Macro
+    GuiControl,, StatusLabel, Macro Status:`nDisabled
+    GuiControl,, MacroToggle, 0
+    GuiControl, Text, MacroToggle, off
     TrayTip, Macro Disabled, Macro mode is OFF., 2
+return
+
+ToggleSwitchCheck:
+    if (isMacroEnabled) {
+        GoSub, DisableMacro
+    } else {
+        GoSub, EnableMacro
+    }
 return
 
 SelectKeyboard:
@@ -105,7 +148,7 @@ SelectKeyboard:
         return
     }
     isSelecting := true
-    GuiControl,, KeyboardText, Keyboard: Press Any Key on Target...
+    GuiControl,, StatusLabel, Macro Status:`nSelecting...
     
     ; Subscribe to all keyboards temporarily to catch which one is pressed
     DeviceList := AHI.GetDeviceList()
@@ -122,13 +165,12 @@ OnSelectionEvent(id, code, state) {
         isSelecting := false
         macroKeyboardId := id
         
-        ; Unsubscribe from all keyboards used for selection
         For index, subId in subscribedIds {
             AHI.UnsubscribeKeyboard(subId)
         }
         subscribedIds := []
         
-        GuiControl,, KeyboardText, Keyboard: Selected ID %id%
+        GuiControl,, StatusLabel, Macro Status:`nReady (ID: %id%)
         MsgBox, 64, Success, Keyboard ID %id% selected as macro keyboard.
     }
 }
@@ -162,14 +204,18 @@ WM_DEVICECHANGE(wParam, lParam) {
     }
 }
 
+
+
 HandleDeviceChange:
     if (isMacroEnabled) {
         isMacroEnabled := false
-        GuiControl,, StatusText, Status: Macro Disabled
+        GuiControl, +Background85c1e9, BgToggle
         GuiControl,, ToggleBtn, Enable Macro
-        if (macroKeyboardId != 0) {
+        GuiControl,, StatusLabel, Macro Status:`nDisabled
+        GuiControl,, MacroToggle, 0
+        GuiControl, Text, MacroToggle, off
+        if (macroKeyboardId != 0)
             AHI.UnsubscribeKeyboard(macroKeyboardId)
-        }
     }
     if (isSelecting) {
         isSelecting := false
@@ -178,12 +224,9 @@ HandleDeviceChange:
         }
         subscribedIds := []
     }
-    
     macroKeyboardId := 0
-    GuiControl,, KeyboardText, Keyboard: None Selected
-    
-    ; Alert user that a device change happened
-    MsgBox, 48, Device Changed, Keyboard connection changed (plugged/unplugged).`nExiting macro mode.`n`nPlease select your macro keyboard again.
+    GuiControl,, StatusLabel, Macro Status:`nDisabled
+    MsgBox, 48, Device Changed, Keyboard plugged/unplugged.`nMacro mode exited.`n`nPlease select your keyboard again.
 return
 
 ; ---------------------------------------------------------
@@ -219,32 +262,45 @@ return
 DeleteKeyMacro:
     RowNumber := LV_GetNext(0)
     if not RowNumber {
-        MsgBox, 48, Warning, Please select a macro from the list to delete.
+        MsgBox, 48, Warning, Please select a macro row first.
         return
     }
-    LV_GetText(scStr, RowNumber, 1)
+    LV_GetText(scStr, RowNumber, 2)
     macros.Delete(scStr)
     GoSub, RefreshListView
 return
 
+OnEditSelected:
+    RowNumber := LV_GetNext(0)
+    if not RowNumber {
+        MsgBox, 48, Warning, Please select a macro row first.
+        return
+    }
+    LV_GetText(scStr, RowNumber, 2)
+    if (macros.HasKey(scStr)) {
+        GuiControl,, InputKey, % macros[scStr].keyName
+        GuiControl,, ActionType, % macros[scStr].type
+        GuiControl,, ActionData, % macros[scStr].data
+    }
+return
+
 OnMacroListEvent:
     if (A_GuiEvent = "DoubleClick") {
-        RowNumber := LV_GetNext(0)
-        if not RowNumber
-            return
-        LV_GetText(scStr, RowNumber, 1)
-        if (macros.HasKey(scStr)) {
-            GuiControl,, InputKey, % macros[scStr].keyName
-            GuiControl,, ActionType, % macros[scStr].type
-            GuiControl,, ActionData, % macros[scStr].data
-        }
+        GoSub, OnEditSelected
     }
+return
+
+ClearForm:
+    GuiControl,, InputKey,
+    GuiControl,, ActionType, Program
+    GuiControl,, ActionData,
 return
 
 RefreshListView:
     LV_Delete()
     For sc, action in macros {
-        LV_Add("", sc, action.keyName, action.type, action.data)
+        desc := action.keyName . " -> [" . action.type . "] " . action.data
+        LV_Add("", desc, sc)
     }
 return
 

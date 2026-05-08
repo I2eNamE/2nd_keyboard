@@ -4,6 +4,7 @@ SetWorkingDir %A_ScriptDir%
 #SingleInstance force
 #Persistent
 #include <AutoHotInterception>
+#Include Neutron.ahk
 
 global AHI := new AutoHotInterception()
 global macroKeyboardId := 0
@@ -11,98 +12,37 @@ global isMacroEnabled := false
 global isSelecting := false
 global subscribedIds := []
 global macros := {} ; Format: macros[scanCode] := {type: "Program", data: "...", keyName: "..."}
-global hwndHdr1 := 0, hwndHdr2 := 0, hwndHdrLine := 0
+global selectedScanCode := ""
+global neutron
 
 ; Register message listeners
 OnMessage(0x0219, "WM_DEVICECHANGE")
 
-; ---------------------------------------------------------
-; GUI Creation - Clean Light Theme
-; ---------------------------------------------------------
-Gui, +AlwaysOnTop -MaximizeBox
-Gui, Color, FFFFFF
-
-; === TOP BAR ===
-; Use Progress controls to simulate colored button backgrounds
-Gui, Add, Progress, x20 y20 w140 h36 Background1a2b7a Disabled
-Gui, Font, s10 Bold cFFFFFF, Segoe UI
-Gui, Add, Text, x20 y20 w140 h36 gSelectKeyboard vSelectBtn BackgroundTrans Center +0x200, Select Keyboard
-
-Gui, Add, Progress, x170 y20 w110 h36 Background85c1e9 Disabled vBgToggle
-Gui, Font, s10 Norm cFFFFFF, Segoe UI
-Gui, Add, Text, x170 y20 w110 h36 gToggleMacro vToggleBtn BackgroundTrans Center +0x200, Enable Macro
-
-; Toggle switch area
-Gui, Font, s9 c000000, Segoe UI
-Gui, Add, GroupBox, x390 y10 w70 h46, Macro
-Gui, Add, Checkbox, x400 y30 w50 h20 vMacroToggle gToggleSwitchCheck, off
-
-Gui, Font, s9 c000000, Segoe UI
-Gui, Add, Text, x470 y20 w120 vStatusLabel, Macro Status:`nDisabled
-
-; Top separator (Light grey)
-Gui, Add, Text, x20 y75 w580 h1 BackgroundEAEAEA,
-
-; === LEFT COLUMN: Configured Macros ===
-Gui, Font, s14 Bold c111111, Segoe UI
-Gui, Add, Text, x20 y90, Configured Macros
-Gui, Font, s10 c333333, Segoe UI
-; No headers, flat border
-Gui, Add, ListView, x20 y125 w280 h320 vMacroList gOnMacroListEvent -Hdr -E0x200 AltSubmit, Desc|SC
-LV_ModifyCol(1, 270)
-LV_ModifyCol(2, 0)
-
-; Edit / Delete row buttons
-Gui, Font, s9 Norm c333333, Segoe UI
-Gui, Add, Button, x20 y455 w90 h28 gOnEditSelected, Edit
-Gui, Add, Button, x120 y455 w90 h28 gDeleteKeyMacro, Delete
-
-; Vertical separator (Light grey)
-Gui, Add, Text, x320 y90 w1 h390 BackgroundEAEAEA,
-
-; === RIGHT COLUMN: Edit / Add Macro ===
-Gui, Font, s14 Bold c111111, Segoe UI
-Gui, Add, Text, x340 y90, Edit / Add Macro
-
-Gui, Font, s10 Norm c111111, Segoe UI
-Gui, Add, Text, x340 y130, Step 1: Press Key
-Gui, Add, Hotkey, x340 y150 w260 h30 vInputKey,
-
-Gui, Add, Text, x340 y195, Step 2: Action
-Gui, Add, DropDownList, x340 y215 w260 vActionType, Program||Website|Text
-
-Gui, Add, Text, x340 y260, Step 3: Details
-Gui, Add, Edit, x340 y280 w260 h30 vActionData,
-
-Gui, Font, s10 Bold c1a2b7a, Segoe UI
-Gui, Add, Text, x340 y330 w130 h36 gSaveKeyMacro Border Center +0x200, + Add to Config
-Gui, Font, s10 Norm c111111, Segoe UI
-Gui, Add, Text, x480 y330 w80 h36 gClearForm Center +0x200, - Clear
-
-; Save / Load Config (bottom right)
-Gui, Font, s10 Norm c1a2b7a, Segoe UI
-Gui, Add, Text, x390 y455 w100 h30 gSaveConfigToFile Center +0x200, Save Config
-Gui, Add, Text, x500 y455 w100 h30 gLoadConfigFromFile Center +0x200, Load Config
-
-Gui, Show, w620 h510, Macro Keyboard Manager
+; Create Neutron Window
+neutron := new NeutronWindow()
+neutron.Load("ui.html")
+neutron.Gui("+LabelNeutron")
+neutron.Show("w740 h620", "Macro Keyboard Manager")
 return
 
-GuiClose:
+NeutronClose:
 ExitApp
 
 ; ---------------------------------------------------------
 ; Application Logic
 ; ---------------------------------------------------------
 
-ToggleMacro:
+ToggleMacro(neutron, event) {
+    global isMacroEnabled
     if (!isMacroEnabled) {
-        GoSub, EnableMacro
+        EnableMacro(neutron)
     } else {
-        GoSub, DisableMacro
+        DisableMacro(neutron)
     }
-return
+}
 
-EnableMacro:
+EnableMacro(neutron) {
+    global isSelecting, macroKeyboardId, isMacroEnabled, AHI
     if (isSelecting) {
         MsgBox, 48, Warning, Please finish selecting a keyboard first.
         return
@@ -114,41 +54,37 @@ EnableMacro:
     ; Always unsubscribe first to avoid duplicate subscriptions
     AHI.UnsubscribeKeyboard(macroKeyboardId)
     isMacroEnabled := true
-    GuiControl, +Backgrounde74c3c, BgToggle ; Change background to red when enabled
-    GuiControl,, ToggleBtn, Disable Macro
-    GuiControl,, StatusLabel, Macro Status:`nEnabled
-    GuiControl,, MacroToggle, 1
-    GuiControl, Text, MacroToggle, on
+    
+    ; Update UI
+    neutron.doc.getElementById("toggleBtn").innerText := "Disable Macro"
+    neutron.doc.getElementById("toggleBtn").className := "btn btn-toggle enabled"
+    neutron.doc.getElementById("statusLabel").innerHTML := "Macro Status:<br><b>Enabled</b>"
+    
     AHI.SubscribeKeyboard(macroKeyboardId, true, Func("OnMacroKeyEvent"))
     TrayTip, Macro Enabled, Macro mode is ON., 2
-return
+}
 
-DisableMacro:
+DisableMacro(neutron) {
+    global isMacroEnabled, macroKeyboardId, AHI
     isMacroEnabled := false
     AHI.UnsubscribeKeyboard(macroKeyboardId)
-    GuiControl, +Background85c1e9, BgToggle ; Restore light blue background
-    GuiControl,, ToggleBtn, Enable Macro
-    GuiControl,, StatusLabel, Macro Status:`nDisabled
-    GuiControl,, MacroToggle, 0
-    GuiControl, Text, MacroToggle, off
+    
+    ; Update UI
+    neutron.doc.getElementById("toggleBtn").innerText := "Enable Macro"
+    neutron.doc.getElementById("toggleBtn").className := "btn btn-toggle"
+    neutron.doc.getElementById("statusLabel").innerHTML := "Macro Status:<br><b>Disabled</b>"
+    
     TrayTip, Macro Disabled, Macro mode is OFF., 2
-return
+}
 
-ToggleSwitchCheck:
-    if (isMacroEnabled) {
-        GoSub, DisableMacro
-    } else {
-        GoSub, EnableMacro
-    }
-return
-
-SelectKeyboard:
+SelectKeyboard(neutron, event) {
+    global isMacroEnabled, isSelecting, AHI, subscribedIds
     if (isMacroEnabled) {
         MsgBox, 48, Warning, Please disable macro mode first before selecting a new keyboard.
         return
     }
     isSelecting := true
-    GuiControl,, StatusLabel, Macro Status:`nSelecting...
+    neutron.doc.getElementById("statusLabel").innerHTML := "Macro Status:<br><b>Selecting...</b>"
     
     ; Subscribe to all keyboards temporarily to catch which one is pressed
     DeviceList := AHI.GetDeviceList()
@@ -158,9 +94,10 @@ SelectKeyboard:
             subscribedIds.Push(A_Index)
         }
     }
-return
+}
 
 OnSelectionEvent(id, code, state) {
+    global isSelecting, macroKeyboardId, subscribedIds, AHI, neutron
     if (isSelecting && state = 1) {
         isSelecting := false
         macroKeyboardId := id
@@ -170,12 +107,13 @@ OnSelectionEvent(id, code, state) {
         }
         subscribedIds := []
         
-        GuiControl,, StatusLabel, Macro Status:`nReady (ID: %id%)
+        neutron.doc.getElementById("statusLabel").innerHTML := "Macro Status:<br><b>Ready (ID: " . id . ")</b>"
         MsgBox, 64, Success, Keyboard ID %id% selected as macro keyboard.
     }
 }
 
 OnMacroKeyEvent(code, state) {
+    global macros
     if (state == 1) { ; Key down
         if (macros.HasKey(code)) {
             action := macros[code]
@@ -204,16 +142,13 @@ WM_DEVICECHANGE(wParam, lParam) {
     }
 }
 
-
-
 HandleDeviceChange:
+    global isMacroEnabled, macroKeyboardId, isSelecting, subscribedIds, AHI, neutron
     if (isMacroEnabled) {
         isMacroEnabled := false
-        GuiControl, +Background85c1e9, BgToggle
-        GuiControl,, ToggleBtn, Enable Macro
-        GuiControl,, StatusLabel, Macro Status:`nDisabled
-        GuiControl,, MacroToggle, 0
-        GuiControl, Text, MacroToggle, off
+        neutron.doc.getElementById("toggleBtn").innerText := "Enable Macro"
+        neutron.doc.getElementById("toggleBtn").className := "btn btn-toggle"
+        neutron.doc.getElementById("statusLabel").innerHTML := "Macro Status:<br><b>Disabled</b>"
         if (macroKeyboardId != 0)
             AHI.UnsubscribeKeyboard(macroKeyboardId)
     }
@@ -225,7 +160,7 @@ HandleDeviceChange:
         subscribedIds := []
     }
     macroKeyboardId := 0
-    GuiControl,, StatusLabel, Macro Status:`nDisabled
+    neutron.doc.getElementById("statusLabel").innerHTML := "Macro Status:<br><b>Disabled</b>"
     MsgBox, 48, Device Changed, Keyboard plugged/unplugged.`nMacro mode exited.`n`nPlease select your keyboard again.
 return
 
@@ -233,8 +168,18 @@ return
 ; GUI Event Handlers
 ; ---------------------------------------------------------
 
-SaveKeyMacro:
-    Gui, Submit, NoHide
+SetSelectedScanCode(neutron, event, sc) {
+    global selectedScanCode
+    selectedScanCode := sc
+}
+
+SaveKeyMacro(neutron, event) {
+    global macros
+    
+    InputKey := neutron.doc.getElementById("inputKey").value
+    ActionType := neutron.doc.getElementById("actionType").value
+    ActionData := neutron.doc.getElementById("actionData").value
+    
     if (InputKey == "") {
         MsgBox, 48, Warning, Please press a key in the 'Press Key' field.
         return
@@ -247,64 +192,66 @@ SaveKeyMacro:
     ; Convert InputKey to scan code
     scanCode := GetKeySC(InputKey)
     if (scanCode == 0 || scanCode == "") {
-        MsgBox, 16, Error, Invalid key selected. Could not determine scan code.
+        MsgBox, 16, Error, Invalid key selected. Could not determine scan code for "%InputKey%".
         return
     }
     
     macros[scanCode] := {type: ActionType, data: ActionData, keyName: InputKey}
-    GoSub, RefreshListView
+    RefreshListView(neutron)
     
     ; Clear inputs for next entry
-    GuiControl,, InputKey, 
-    GuiControl,, ActionData, 
-return
+    neutron.doc.getElementById("inputKey").value := ""
+    neutron.doc.getElementById("actionData").value := ""
+}
 
-DeleteKeyMacro:
-    RowNumber := LV_GetNext(0)
-    if not RowNumber {
+DeleteKeyMacro(neutron, event) {
+    global macros, selectedScanCode
+    if (selectedScanCode == "") {
         MsgBox, 48, Warning, Please select a macro row first.
         return
     }
-    LV_GetText(scStr, RowNumber, 2)
-    macros.Delete(scStr)
-    GoSub, RefreshListView
-return
+    macros.Delete(selectedScanCode)
+    selectedScanCode := ""
+    RefreshListView(neutron)
+}
 
-OnEditSelected:
-    RowNumber := LV_GetNext(0)
-    if not RowNumber {
+OnEditSelected(neutron, event) {
+    global macros, selectedScanCode
+    if (selectedScanCode == "") {
         MsgBox, 48, Warning, Please select a macro row first.
         return
     }
-    LV_GetText(scStr, RowNumber, 2)
-    if (macros.HasKey(scStr)) {
-        GuiControl,, InputKey, % macros[scStr].keyName
-        GuiControl,, ActionType, % macros[scStr].type
-        GuiControl,, ActionData, % macros[scStr].data
+    if (macros.HasKey(selectedScanCode)) {
+        neutron.doc.getElementById("inputKey").value := macros[selectedScanCode].keyName
+        neutron.doc.getElementById("actionType").value := macros[selectedScanCode].type
+        neutron.doc.getElementById("actionData").value := macros[selectedScanCode].data
     }
-return
+}
 
-OnMacroListEvent:
-    if (A_GuiEvent = "DoubleClick") {
-        GoSub, OnEditSelected
-    }
-return
+ClearForm(neutron, event) {
+    neutron.doc.getElementById("inputKey").value := ""
+    neutron.doc.getElementById("actionType").value := "Program"
+    neutron.doc.getElementById("actionData").value := ""
+}
 
-ClearForm:
-    GuiControl,, InputKey,
-    GuiControl,, ActionType, Program
-    GuiControl,, ActionData,
-return
-
-RefreshListView:
-    LV_Delete()
+RefreshListView(neutron) {
+    global macros
+    html := ""
     For sc, action in macros {
-        desc := action.keyName . " -> [" . action.type . "] " . action.data
-        LV_Add("", desc, sc)
+        ; Escape strings for HTML
+        safeDesc := action.keyName . " -> [" . action.type . "] " . action.data
+        StringReplace, safeDesc, safeDesc, &, &amp;, All
+        StringReplace, safeDesc, safeDesc, <, &lt;, All
+        StringReplace, safeDesc, safeDesc, >, &gt;, All
+        StringReplace, safeDesc, safeDesc, ", &quot;, All
+        
+        html .= "<div class='macro-item' id='macro_" sc "' onclick='selectMacro(""" sc """)'>" safeDesc "</div>"
     }
-return
+    neutron.doc.getElementById("macroList").innerHTML := html
+}
 
-SaveConfigToFile:
+SaveConfigToFile(neutron, event) {
+    global macros
     FileSelectFile, SelectedFile, S16, %A_ScriptDir%\macro_config.ini, Save Config As, INI Documents (*.ini)
     if (SelectedFile = "")
         return
@@ -320,9 +267,10 @@ SaveConfigToFile:
         IniWrite, % action.data, %SelectedFile%, Macro_%sc%, Data
     }
     MsgBox, 64, Success, Configuration saved successfully to:`n%SelectedFile%
-return
+}
 
-LoadConfigFromFile:
+LoadConfigFromFile(neutron, event) {
+    global macros
     FileSelectFile, SelectedFile, 3, %A_ScriptDir%, Load Config, INI Documents (*.ini)
     if (SelectedFile = "")
         return
@@ -346,6 +294,6 @@ LoadConfigFromFile:
             macros[sc] := {type: type, data: data, keyName: keyName}
         }
     }
-    GoSub, RefreshListView
+    RefreshListView(neutron)
     MsgBox, 64, Success, Configuration loaded successfully.
-return
+}

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+            --bg-color: #f9fafb;
+            --card-bg: #ffffff;
+            --text-main: #111827;
+            --text-muted: #6b7280;
+            --border: #e5e7eb;
+        }
+
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: var(--bg-color); 
+            color: var(--text-main); 
+            margin: 0; 
+            padding: 20px; 
+            user-select: none;
+        }
+
+        /* Top Bar */
+        .top-bar { 
+            display: flex; 
+            align-items: center; 
+            gap: 15px; 
+            margin-bottom: 25px; 
+            background: var(--card-bg);
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .btn { 
+            padding: 10px 18px; 
+            border: none; 
+            border-radius: 6px; 
+            font-weight: 600; 
+            font-size: 14px;
+            cursor: pointer; 
+            color: white; 
+            transition: background 0.2s;
+            outline: none;
+        }
+
+        .btn-select { background-color: var(--primary); }
+        .btn-select:hover { background-color: var(--primary-hover); }
+
+        .btn-toggle { background-color: var(--text-muted); }
+        .btn-toggle:hover { background-color: #4b5563; }
+        .btn-toggle.enabled { background-color: var(--danger); }
+        .btn-toggle.enabled:hover { background-color: var(--danger-hover); }
+
+        .status-box { 
+            margin-left: auto; 
+            font-size: 14px; 
+            text-align: right; 
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+        .status-box b { color: var(--text-main); font-size: 15px; }
+        
+        /* Layout */
+        .main-content { 
+            display: flex; 
+            gap: 20px; 
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .left-col { flex: 1; width: 45%; }
+        .right-col { flex: 1; width: 55%; }
+        
+        h2 {
+            margin-top: 0;
+            font-size: 18px;
+            color: var(--text-main);
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+        }
+
+        /* Macro List */
+        .macro-list { 
+            width: 100%; 
+            height: 250px; 
+            overflow-y: auto; 
+            border: 1px solid var(--border); 
+            border-radius: 6px;
+            margin-bottom: 15px; 
+            background: #fafafa;
+        }
+
+        .macro-item { 
+            padding: 10px 15px; 
+            border-bottom: 1px solid var(--border); 
+            cursor: pointer; 
+            font-size: 14px;
+            transition: background 0.1s;
+            word-break: break-all;
+        }
+        .macro-item:last-child { border-bottom: none; }
+        .macro-item:hover { background-color: #f3f4f6; }
+        .macro-item.selected { 
+            background-color: #e0e7ff; 
+            border-left: 4px solid var(--primary);
+            padding-left: 11px;
+        }
+        
+        /* Forms */
+        .form-group { margin-bottom: 15px; }
+        .form-group label { 
+            display: block; 
+            margin-bottom: 6px; 
+            font-weight: 600; 
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        .form-control { 
+            width: 100%; 
+            padding: 10px; 
+            border: 1px solid var(--border); 
+            border-radius: 6px; 
+            box-sizing: border-box; 
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-control:focus { border-color: var(--primary); }
+        
+        .actions { display: flex; gap: 10px; margin-top: 20px; }
+        .btn-save { background-color: var(--primary); flex: 2; }
+        .btn-save:hover { background-color: var(--primary-hover); }
+        .btn-clear { background-color: #e5e7eb; color: var(--text-main); flex: 1; }
+        .btn-clear:hover { background-color: #d1d5db; }
+        
+        .bottom-bar { 
+            display: flex; 
+            justify-content: flex-end; 
+            gap: 10px; 
+            margin-top: 20px; 
+            padding-top: 15px;
+            border-top: 1px solid var(--border);
+        }
+        .btn-outline { 
+            background-color: transparent; 
+            border: 1px solid var(--border); 
+            color: var(--text-main); 
+            font-weight: 500;
+        }
+        .btn-outline:hover { background-color: #f3f4f6; }
+        .btn-danger-outline {
+            background-color: transparent; 
+            border: 1px solid var(--danger); 
+            color: var(--danger); 
+        }
+        .btn-danger-outline:hover {
+            background-color: #fef2f2;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <button class="btn btn-select" onclick="ahk.SelectKeyboard()">Select Keyboard</button>
+        <button id="toggleBtn" class="btn btn-toggle" onclick="ahk.ToggleMacro()">Enable Macro</button>
+        <div class="status-box" id="statusLabel">Macro Status:<br><b>Disabled</b></div>
+    </div>
+    
+    <div class="main-content">
+        <div class="card left-col">
+            <h2>Configured Macros</h2>
+            <div class="macro-list" id="macroList">
+                <!-- Macro items will be injected here -->
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-outline" style="flex: 1;" onclick="ahk.OnEditSelected()">Edit Selected</button>
+                <button class="btn btn-danger-outline" style="flex: 1;" onclick="ahk.DeleteKeyMacro()">Delete</button>
+            </div>
+        </div>
+        
+        <div class="card right-col">
+            <h2>Edit / Add Macro</h2>
+            <div class="form-group">
+                <label>Step 1: Press Key</label>
+                <input type="text" id="inputKey" class="form-control" placeholder="Click here and press a key" onkeydown="handleKeyDown(event)">
+            </div>
+            <div class="form-group">
+                <label>Step 2: Action</label>
+                <select id="actionType" class="form-control">
+                    <option value="Program">Program / Path</option>
+                    <option value="Website">Website URL</option>
+                    <option value="Text">Send Text</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Step 3: Details</label>
+                <input type="text" id="actionData" class="form-control" placeholder="Enter path, url or text...">
+            </div>
+            <div class="actions">
+                <button class="btn btn-save" onclick="ahk.SaveKeyMacro()">+ Add to Config</button>
+                <button class="btn btn-clear" onclick="ahk.ClearForm()">Clear</button>
+            </div>
+            
+            <div class="bottom-bar">
+                <button class="btn btn-outline" onclick="ahk.SaveConfigToFile()">Save Config</button>
+                <button class="btn btn-outline" onclick="ahk.LoadConfigFromFile()">Load Config</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function handleKeyDown(e) {
+            e.preventDefault();
+            let keyName = e.key; 
+            
+            if (keyName.length === 1) {
+                keyName = keyName.toUpperCase();
+            } else if (keyName === " ") {
+                keyName = "Space";
+            }
+            
+            if (e.code.startsWith("Numpad")) {
+                keyName = e.code;
+            } else if (e.code.startsWith("Digit")) {
+                keyName = e.code.replace("Digit", "");
+            } else if (e.code.startsWith("Key")) {
+                keyName = e.code.replace("Key", "");
+            }
+            
+            document.getElementById('inputKey').value = keyName;
+        }
+        
+        function selectMacro(sc) {
+            document.querySelectorAll('.macro-item').forEach(el => el.classList.remove('selected'));
+            const item = document.getElementById('macro_' + sc);
+            if(item) {
+                item.classList.add('selected');
+                ahk.SetSelectedScanCode(sc);
+            }
+        }
+    </script>
+</body>
+</html>

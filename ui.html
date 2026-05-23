@@ -3,22 +3,10 @@
 <head>
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <style>
-        :root {
-            --primary: #4f46e5;
-            --primary-hover: #4338ca;
-            --danger: #ef4444;
-            --danger-hover: #dc2626;
-            --bg-color: #f9fafb;
-            --card-bg: #ffffff;
-            --text-main: #111827;
-            --text-muted: #6b7280;
-            --border: #e5e7eb;
-        }
-
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background-color: var(--bg-color); 
-            color: var(--text-main); 
+            background-color: #f9fafb; 
+            color: #111827; 
             margin: 0; 
             padding: 20px; 
             user-select: none;
@@ -30,7 +18,7 @@
             align-items: center; 
             gap: 15px; 
             margin-bottom: 25px; 
-            background: var(--card-bg);
+            background: #ffffff;
             padding: 15px 20px;
             border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
@@ -48,22 +36,22 @@
             outline: none;
         }
 
-        .btn-select { background-color: var(--primary); }
-        .btn-select:hover { background-color: var(--primary-hover); }
+        .btn-select { background-color: #4f46e5; }
+        .btn-select:hover { background-color: #4338ca; }
 
-        .btn-toggle { background-color: var(--text-muted); }
+        .btn-toggle { background-color: #6b7280; }
         .btn-toggle:hover { background-color: #4b5563; }
-        .btn-toggle.enabled { background-color: var(--danger); }
-        .btn-toggle.enabled:hover { background-color: var(--danger-hover); }
+        .btn-toggle.enabled { background-color: #ef4444; }
+        .btn-toggle.enabled:hover { background-color: #dc2626; }
 
         .status-box { 
             margin-left: auto; 
             font-size: 14px; 
             text-align: right; 
-            color: var(--text-muted);
+            color: #6b7280;
             line-height: 1.4;
         }
-        .status-box b { color: var(--text-main); font-size: 15px; }
+        .status-box b { color: #111827; font-size: 15px; }
         
         /* Layout */
         .main-content { 
@@ -72,7 +60,7 @@
         }
 
         .card {
-            background: var(--card-bg);
+            background: #ffffff;
             border-radius: 8px;
             padding: 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
@@ -84,9 +72,9 @@
         h2 {
             margin-top: 0;
             font-size: 18px;
-            color: var(--text-main);
+            color: #111827;
             margin-bottom: 15px;
-            border-bottom: 1px solid var(--border);
+            border-bottom: 1px solid #e5e7eb;
             padding-bottom: 10px;
         }
 
@@ -95,7 +83,7 @@
             width: 100%; 
             height: 250px; 
             overflow-y: auto; 
-            border: 1px solid var(--border); 
+            border: 1px solid #e5e7eb; 
             border-radius: 6px;
             margin-bottom: 15px; 
             background: #fafafa;
@@ -103,7 +91,7 @@
 
         .macro-item { 
             padding: 10px 15px; 
-            border-bottom: 1px solid var(--border); 
+            border-bottom: 1px solid #e5e7eb; 
             cursor: pointer; 
             font-size: 14px;
             transition: background 0.1s;
@@ -113,7 +101,7 @@
         .macro-item:hover { background-color: #f3f4f6; }
         .macro-item.selected { 
             background-color: #e0e7ff; 
-            border-left: 4px solid var(--primary);
+            border-left: 4px solid #4f46e5;
             padding-left: 11px;
         }
         
@@ -124,12 +112,12 @@
             margin-bottom: 6px; 
             font-weight: 600; 
             font-size: 13px;
-            color: var(--text-muted);
+            color: #6b7280;
         }
         .form-control { 
             width: 100%; 
             padding: 10px; 
-            border: 1px solid var(--border); 
+            border: 1px solid #e5e7eb; 
             border-radius: 6px; 
             box-sizing: border-box; 
             font-size: 14px;
@@ -137,12 +125,12 @@
             outline: none;
             transition: border-color 0.2s;
         }
-        .form-control:focus { border-color: var(--primary); }
+        .form-control:focus { border-color: #4f46e5; }
         
         .actions { display: flex; gap: 10px; margin-top: 20px; }
-        .btn-save { background-color: var(--primary); flex: 2; }
-        .btn-save:hover { background-color: var(--primary-hover); }
-        .btn-clear { background-color: #e5e7eb; color: var(--text-main); flex: 1; }
+        .btn-save { background-color: #4f46e5; flex: 2; }
+        .btn-save:hover { background-color: #4338ca; }
+        .btn-clear { background-color: #e5e7eb; color: #111827; flex: 1; }
         .btn-clear:hover { background-color: #d1d5db; }
         
         .bottom-bar { 
@@ -151,19 +139,19 @@
             gap: 10px; 
             margin-top: 20px; 
             padding-top: 15px;
-            border-top: 1px solid var(--border);
+            border-top: 1px solid #e5e7eb;
         }
         .btn-outline { 
             background-color: transparent; 
-            border: 1px solid var(--border); 
-            color: var(--text-main); 
+            border: 1px solid #e5e7eb; 
+            color: #111827; 
             font-weight: 500;
         }
         .btn-outline:hover { background-color: #f3f4f6; }
         .btn-danger-outline {
             background-color: transparent; 
-            border: 1px solid var(--danger); 
-            color: var(--danger); 
+            border: 1px solid #ef4444; 
+            color: #ef4444; 
         }
         .btn-danger-outline:hover {
             background-color: #fef2f2;
@@ -223,7 +211,7 @@
     <script>
         function handleKeyDown(e) {
             e.preventDefault();
-            let keyName = e.key; 
+            var keyName = e.key; 
             
             if (keyName.length === 1) {
                 keyName = keyName.toUpperCase();
@@ -231,22 +219,26 @@
                 keyName = "Space";
             }
             
-            if (e.code.startsWith("Numpad")) {
-                keyName = e.code;
-            } else if (e.code.startsWith("Digit")) {
-                keyName = e.code.replace("Digit", "");
-            } else if (e.code.startsWith("Key")) {
-                keyName = e.code.replace("Key", "");
+            var code = e.code || "";
+            if (code.indexOf("Numpad") === 0) {
+                keyName = code;
+            } else if (code.indexOf("Digit") === 0) {
+                keyName = code.replace("Digit", "");
+            } else if (code.indexOf("Key") === 0) {
+                keyName = code.replace("Key", "");
             }
             
             document.getElementById('inputKey').value = keyName;
         }
         
         function selectMacro(sc) {
-            document.querySelectorAll('.macro-item').forEach(el => el.classList.remove('selected'));
-            const item = document.getElementById('macro_' + sc);
-            if(item) {
-                item.classList.add('selected');
+            var items = document.querySelectorAll('.macro-item');
+            for (var i = 0; i < items.length; i++) {
+                items[i].className = items[i].className.replace(/\s*selected\b/g, '');
+            }
+            var item = document.getElementById('macro_' + sc);
+            if (item) {
+                item.className += ' selected';
                 ahk.SetSelectedScanCode(sc);
             }
         }

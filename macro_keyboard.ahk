@@ -25,6 +25,8 @@ neutron.Gui("+LabelNeutron")
 neutron.Show("w740 h620", "Macro Keyboard Manager")
 return
 
+
+
 NeutronClose:
 ExitApp
 
@@ -32,7 +34,7 @@ ExitApp
 ; Application Logic
 ; ---------------------------------------------------------
 
-ToggleMacro(neutron, event) {
+ToggleMacro(neutron, event := "") {
     global isMacroEnabled
     if (!isMacroEnabled) {
         EnableMacro(neutron)
@@ -77,7 +79,7 @@ DisableMacro(neutron) {
     TrayTip, Macro Disabled, Macro mode is OFF., 2
 }
 
-SelectKeyboard(neutron, event) {
+SelectKeyboard(neutron, event := "") {
     global isMacroEnabled, isSelecting, AHI, subscribedIds
     if (isMacroEnabled) {
         MsgBox, 48, Warning, Please disable macro mode first before selecting a new keyboard.
@@ -173,7 +175,7 @@ SetSelectedScanCode(neutron, event, sc) {
     selectedScanCode := sc
 }
 
-SaveKeyMacro(neutron, event) {
+SaveKeyMacro(neutron, event := "") {
     global macros
     
     InputKey := neutron.doc.getElementById("inputKey").value
@@ -204,7 +206,7 @@ SaveKeyMacro(neutron, event) {
     neutron.doc.getElementById("actionData").value := ""
 }
 
-DeleteKeyMacro(neutron, event) {
+DeleteKeyMacro(neutron, event := "") {
     global macros, selectedScanCode
     if (selectedScanCode == "") {
         MsgBox, 48, Warning, Please select a macro row first.
@@ -215,7 +217,7 @@ DeleteKeyMacro(neutron, event) {
     RefreshListView(neutron)
 }
 
-OnEditSelected(neutron, event) {
+OnEditSelected(neutron, event := "") {
     global macros, selectedScanCode
     if (selectedScanCode == "") {
         MsgBox, 48, Warning, Please select a macro row first.
@@ -228,7 +230,7 @@ OnEditSelected(neutron, event) {
     }
 }
 
-ClearForm(neutron, event) {
+ClearForm(neutron, event := "") {
     neutron.doc.getElementById("inputKey").value := ""
     neutron.doc.getElementById("actionType").value := "Program"
     neutron.doc.getElementById("actionData").value := ""
@@ -250,7 +252,7 @@ RefreshListView(neutron) {
     neutron.doc.getElementById("macroList").innerHTML := html
 }
 
-SaveConfigToFile(neutron, event) {
+SaveConfigToFile(neutron, event := "") {
     global macros
     FileSelectFile, SelectedFile, S16, %A_ScriptDir%\macro_config.ini, Save Config As, INI Documents (*.ini)
     if (SelectedFile = "")
@@ -269,7 +271,7 @@ SaveConfigToFile(neutron, event) {
     MsgBox, 64, Success, Configuration saved successfully to:`n%SelectedFile%
 }
 
-LoadConfigFromFile(neutron, event) {
+LoadConfigFromFile(neutron, event := "") {
     global macros
     FileSelectFile, SelectedFile, 3, %A_ScriptDir%, Load Config, INI Documents (*.ini)
     if (SelectedFile = "")

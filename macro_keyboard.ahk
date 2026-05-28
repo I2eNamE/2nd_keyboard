@@ -124,9 +124,15 @@ OnMacroKeyEvent(code, state) {
                 if (ErrorLevel)
                     MsgBox, 16, Error, % "Failed to run program:`n" . action.data
             } else if (action.type == "Website") {
-                Run, % action.data,, UseErrorLevel
-                if (ErrorLevel)
-                    MsgBox, 16, Error, % "Failed to open website:`n" . action.data
+                targetUrl := action.data
+                Run, chrome.exe "%targetUrl%",, UseErrorLevel
+                if (ErrorLevel) {
+                    if (!InStr(targetUrl, "://"))
+                        targetUrl := "http://" . targetUrl
+                    Run, %targetUrl%,, UseErrorLevel
+                    if (ErrorLevel)
+                        MsgBox, 16, Error, % "Failed to open website:`n" . action.data
+                }
             } else if (action.type == "Text") {
                 ; Send raw text to active window
                 SendInput, % "{Raw}" . action.data
@@ -170,7 +176,7 @@ return
 ; GUI Event Handlers
 ; ---------------------------------------------------------
 
-SetSelectedScanCode(neutron, event, sc) {
+SetSelectedScanCode(neutron, sc) {
     global selectedScanCode
     selectedScanCode := sc
 }
@@ -181,6 +187,7 @@ SaveKeyMacro(neutron, event := "") {
     InputKey := neutron.doc.getElementById("inputKey").value
     ActionType := neutron.doc.getElementById("actionType").value
     ActionData := neutron.doc.getElementById("actionData").value
+    MacroName := neutron.doc.getElementById("inputName").value
     
     if (InputKey == "") {
         MsgBox, 48, Warning, Please press a key in the 'Press Key' field.
@@ -198,12 +205,13 @@ SaveKeyMacro(neutron, event := "") {
         return
     }
     
-    macros[scanCode] := {type: ActionType, data: ActionData, keyName: InputKey}
+    macros[scanCode] := {type: ActionType, data: ActionData, keyName: InputKey, name: MacroName}
     RefreshListView(neutron)
     
     ; Clear inputs for next entry
     neutron.doc.getElementById("inputKey").value := ""
     neutron.doc.getElementById("actionData").value := ""
+    neutron.doc.getElementById("inputName").value := ""
 }
 
 DeleteKeyMacro(neutron, event := "") {
@@ -227,6 +235,9 @@ OnEditSelected(neutron, event := "") {
         neutron.doc.getElementById("inputKey").value := macros[selectedScanCode].keyName
         neutron.doc.getElementById("actionType").value := macros[selectedScanCode].type
         neutron.doc.getElementById("actionData").value := macros[selectedScanCode].data
+        
+        nameVal := macros[selectedScanCode].HasKey("name") ? macros[selectedScanCode].name : ""
+        neutron.doc.getElementById("inputName").value := nameVal
     }
 }
 
@@ -234,20 +245,48 @@ ClearForm(neutron, event := "") {
     neutron.doc.getElementById("inputKey").value := ""
     neutron.doc.getElementById("actionType").value := "Program"
     neutron.doc.getElementById("actionData").value := ""
+    neutron.doc.getElementById("inputName").value := ""
 }
 
 RefreshListView(neutron) {
     global macros
     html := ""
     For sc, action in macros {
-        ; Escape strings for HTML
-        safeDesc := action.keyName . " -> [" . action.type . "] " . action.data
-        StringReplace, safeDesc, safeDesc, &, &amp;, All
-        StringReplace, safeDesc, safeDesc, <, &lt;, All
-        StringReplace, safeDesc, safeDesc, >, &gt;, All
-        StringReplace, safeDesc, safeDesc, ", &quot;, All
+        icon := "❓"
+        if (action.type == "Program")
+            icon := "💻"
+        else if (action.type == "Website")
+            icon := "🌐"
+        else if (action.type == "Text")
+            icon := "📝"
+            
+        macroName := action.HasKey("name") ? action.name : ""
+        if (macroName == "") {
+            titleText := action.keyName . " Macro"
+            detailsText := action.data
+        } else {
+            titleText := macroName
+            detailsText := action.keyName . " ➔ " . action.data
+        }
         
-        html .= "<div class='macro-item' id='macro_" sc "' onclick='selectMacro(""" sc """)'>" safeDesc "</div>"
+        ; Escape strings for HTML
+        StringReplace, titleText, titleText, &, &amp;, All
+        StringReplace, titleText, titleText, <, &lt;, All
+        StringReplace, titleText, titleText, >, &gt;, All
+        StringReplace, titleText, titleText, ", &quot;, All
+        
+        StringReplace, detailsText, detailsText, &, &amp;, All
+        StringReplace, detailsText, detailsText, <, &lt;, All
+        StringReplace, detailsText, detailsText, >, &gt;, All
+        StringReplace, detailsText, detailsText, ", &quot;, All
+        
+        html .= "<div class='macro-item' id='macro_" . sc . "' onclick='selectMacro(""" . sc . """)'>"
+        html .= "  <span class='macro-icon'>" . icon . "</span>"
+        html .= "  <div class='macro-content'>"
+        html .= "    <div class='macro-title'>" . titleText . "</div>"
+        html .= "    <div class='macro-details'>" . detailsText . "</div>"
+        html .= "  </div>"
+        html .= "</div>"
     }
     neutron.doc.getElementById("macroList").innerHTML := html
 }
@@ -267,6 +306,9 @@ SaveConfigToFile(neutron, event := "") {
         IniWrite, % action.keyName, %SelectedFile%, Macro_%sc%, KeyName
         IniWrite, % action.type, %SelectedFile%, Macro_%sc%, Type
         IniWrite, % action.data, %SelectedFile%, Macro_%sc%, Data
+        
+        macroName := action.HasKey("name") ? action.name : ""
+        IniWrite, % macroName, %SelectedFile%, Macro_%sc%, Name
     }
     MsgBox, 64, Success, Configuration saved successfully to:`n%SelectedFile%
 }
@@ -293,7 +335,8 @@ LoadConfigFromFile(neutron, event := "") {
             IniRead, keyName, %SelectedFile%, %section%, KeyName
             IniRead, type, %SelectedFile%, %section%, Type
             IniRead, data, %SelectedFile%, %section%, Data
-            macros[sc] := {type: type, data: data, keyName: keyName}
+            IniRead, name, %SelectedFile%, %section%, Name, % ""
+            macros[sc] := {type: type, data: data, keyName: keyName, name: name}
         }
     }
     RefreshListView(neutron)

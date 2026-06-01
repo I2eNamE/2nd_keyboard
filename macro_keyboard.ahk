@@ -18,28 +18,73 @@ global neutron
 ; Register message listeners
 OnMessage(0x0219, "WM_DEVICECHANGE")
 
+; Configure system tray menu
+Menu, Tray, NoStandard
+Menu, Tray, Add, Show Manager, ShowManager
+Menu, Tray, Add, Toggle Macro (Ctrl+F12), TrayToggleMacro
+Menu, Tray, Add ; Separator
+Menu, Tray, Add, Exit, ExitAppLabel
+Menu, Tray, Default, Show Manager
+Menu, Tray, Tip, Macro Keyboard Manager
+
 ; Create Neutron Window
 neutron := new NeutronWindow()
 neutron.Load("ui.html")
 neutron.Gui("+LabelNeutron")
 neutron.Show("w740 h620", "Macro Keyboard Manager")
+
+; Load default config if it exists
+defaultConfig := A_ScriptDir . "\default_config.ini"
+if (FileExist(defaultConfig)) {
+    LoadConfig(neutron, defaultConfig)
+}
 return
 
 
 
 NeutronClose:
-ExitApp
+    defaultConfig := A_ScriptDir . "\default_config.ini"
+    SaveConfig(neutron, defaultConfig)
+    neutron.Hide()
+    TrayTip, Macro Keyboard Manager, Running in background. Double-click tray icon to open., 3
+    return
+
+NeutronSize:
+    if (A_EventInfo == 1) { ; Minimized
+        neutron.Hide()
+        TrayTip, Macro Keyboard Manager, Running in background. Double-click tray icon to open., 3
+    }
+    return
+
 
 ; ---------------------------------------------------------
 ; Application Logic
 ; ---------------------------------------------------------
 
 ToggleMacro(neutron, event := "") {
-    global isMacroEnabled
-    if (!isMacroEnabled) {
-        EnableMacro(neutron)
-    } else {
+    global isMacroEnabled, isSelecting, macroKeyboardId, subscribedIds, AHI
+    if (isSelecting) {
+        ; Cancel selection
+        isSelecting := false
+        For index, subId in subscribedIds {
+            AHI.UnsubscribeKeyboard(subId)
+        }
+        subscribedIds := []
+        
+        neutron.doc.getElementById("toggleBtn").innerText := "Enable Macro"
+        neutron.doc.getElementById("toggleBtn").className := "btn btn-toggle"
+        neutron.doc.getElementById("statusLabel").innerHTML := "Macro Status:<br><b>Disabled</b>"
+        return
+    }
+
+    if (isMacroEnabled) {
         DisableMacro(neutron)
+    } else {
+        if (macroKeyboardId == 0) {
+            SelectKeyboard(neutron)
+        } else {
+            EnableMacro(neutron)
+        }
     }
 }
 
@@ -60,7 +105,7 @@ EnableMacro(neutron) {
     ; Update UI
     neutron.doc.getElementById("toggleBtn").innerText := "Disable Macro"
     neutron.doc.getElementById("toggleBtn").className := "btn btn-toggle enabled"
-    neutron.doc.getElementById("statusLabel").innerHTML := "Macro Status:<br><b>Enabled</b>"
+    neutron.doc.getElementById("statusLabel").innerHTML := "Macro Status:<br><b>Enabled (ID: " . macroKeyboardId . ")</b>"
     
     AHI.SubscribeKeyboard(macroKeyboardId, true, Func("OnMacroKeyEvent"))
     TrayTip, Macro Enabled, Macro mode is ON., 2
@@ -88,6 +133,10 @@ SelectKeyboard(neutron, event := "") {
     isSelecting := true
     neutron.doc.getElementById("statusLabel").innerHTML := "Macro Status:<br><b>Selecting...</b>"
     
+    ; Change button text to indicate selection cancel option
+    neutron.doc.getElementById("toggleBtn").innerText := "Cancel Selection"
+    neutron.doc.getElementById("toggleBtn").className := "btn btn-toggle enabled"
+    
     ; Subscribe to all keyboards temporarily to catch which one is pressed
     DeviceList := AHI.GetDeviceList()
     Loop 10 {
@@ -109,8 +158,10 @@ OnSelectionEvent(id, code, state) {
         }
         subscribedIds := []
         
-        neutron.doc.getElementById("statusLabel").innerHTML := "Macro Status:<br><b>Ready (ID: " . id . ")</b>"
-        MsgBox, 64, Success, Keyboard ID %id% selected as macro keyboard.
+        ; Automatically enable macro once keyboard is selected!
+        EnableMacro(neutron)
+        
+        MsgBox, 64, Success, Keyboard ID %id% selected and macro enabled!
     }
 }
 
@@ -123,6 +174,10 @@ OnMacroKeyEvent(code, state) {
                 Run, % action.data,, UseErrorLevel
                 if (ErrorLevel)
                     MsgBox, 16, Error, % "Failed to run program:`n" . action.data
+            } else if (action.type == "Folder") {
+                Run, % "explorer.exe """ . action.data . """",, UseErrorLevel
+                if (ErrorLevel)
+                    MsgBox, 16, Error, % "Failed to open folder:`n" . action.data
             } else if (action.type == "Website") {
                 targetUrl := action.data
                 Run, chrome.exe "%targetUrl%",, UseErrorLevel
@@ -134,8 +189,8 @@ OnMacroKeyEvent(code, state) {
                         MsgBox, 16, Error, % "Failed to open website:`n" . action.data
                 }
             } else if (action.type == "Text") {
-                ; Send raw text to active window
-                SendInput, % "{Raw}" . action.data
+                ; Send text and support special keys (e.g. {Tab}, {Enter})
+                SendTextWithKeys(action.data)
             }
         }
     }
@@ -252,13 +307,15 @@ RefreshListView(neutron) {
     global macros
     html := ""
     For sc, action in macros {
-        icon := "❓"
+        icon := "assets/keyboard.svg"
         if (action.type == "Program")
-            icon := "💻"
+            icon := "assets/program.svg"
+        else if (action.type == "Folder")
+            icon := "assets/Open%20Folder.svg"
         else if (action.type == "Website")
-            icon := "🌐"
+            icon := "assets/website%20URL.svg"
         else if (action.type == "Text")
-            icon := "📝"
+            icon := "assets/Send%20Text.svg"
             
         macroName := action.HasKey("name") ? action.name : ""
         if (macroName == "") {
@@ -266,7 +323,7 @@ RefreshListView(neutron) {
             detailsText := action.data
         } else {
             titleText := macroName
-            detailsText := action.keyName . " ➔ " . action.data
+            detailsText := action.keyName . " -> " . action.data
         }
         
         ; Escape strings for HTML
@@ -281,7 +338,7 @@ RefreshListView(neutron) {
         StringReplace, detailsText, detailsText, ", &quot;, All
         
         html .= "<div class='macro-item' id='macro_" . sc . "' onclick='selectMacro(""" . sc . """)'>"
-        html .= "  <span class='macro-icon'>" . icon . "</span>"
+        html .= "  <span class='macro-icon'><img src='" . icon . "' class='macro-svg-icon' /></span>"
         html .= "  <div class='macro-content'>"
         html .= "    <div class='macro-title'>" . titleText . "</div>"
         html .= "    <div class='macro-details'>" . detailsText . "</div>"
@@ -291,54 +348,146 @@ RefreshListView(neutron) {
     neutron.doc.getElementById("macroList").innerHTML := html
 }
 
-SaveConfigToFile(neutron, event := "") {
+SaveConfig(neutron, filePath) {
     global macros
-    FileSelectFile, SelectedFile, S16, %A_ScriptDir%\macro_config.ini, Save Config As, INI Documents (*.ini)
-    if (SelectedFile = "")
-        return
-    if !InStr(SelectedFile, ".ini")
-        SelectedFile .= ".ini"
-        
-    ; Clear existing file
-    FileDelete, %SelectedFile%
     
+    ; Delete existing file to avoid remnants
+    FileDelete, %filePath%
+    
+    ; Save Macros
     For sc, action in macros {
-        IniWrite, % action.keyName, %SelectedFile%, Macro_%sc%, KeyName
-        IniWrite, % action.type, %SelectedFile%, Macro_%sc%, Type
-        IniWrite, % action.data, %SelectedFile%, Macro_%sc%, Data
+        IniWrite, % action.keyName, %filePath%, Macro_%sc%, KeyName
+        IniWrite, % action.type, %filePath%, Macro_%sc%, Type
+        IniWrite, % action.data, %filePath%, Macro_%sc%, Data
         
         macroName := action.HasKey("name") ? action.name : ""
-        IniWrite, % macroName, %SelectedFile%, Macro_%sc%, Name
+        IniWrite, % macroName, %filePath%, Macro_%sc%, Name
     }
-    MsgBox, 64, Success, Configuration saved successfully to:`n%SelectedFile%
+    return true
 }
 
-LoadConfigFromFile(neutron, event := "") {
+LoadConfig(neutron, filePath) {
     global macros
-    FileSelectFile, SelectedFile, 3, %A_ScriptDir%, Load Config, INI Documents (*.ini)
-    if (SelectedFile = "")
-        return
-    
+    if (!FileExist(filePath))
+        return false
+        
     ; Read all sections
-    IniRead, SectionNames, %SelectedFile%
-    if (SectionNames == "") {
-        MsgBox, 16, Error, Invalid or empty config file.
-        return
-    }
-    
+    IniRead, SectionNames, %filePath%
+    if (SectionNames == "")
+        return false
+        
     macros := {}
     Loop, Parse, SectionNames, `n
     {
         section := A_LoopField
         if (InStr(section, "Macro_") == 1) {
             sc := SubStr(section, 7)
-            IniRead, keyName, %SelectedFile%, %section%, KeyName
-            IniRead, type, %SelectedFile%, %section%, Type
-            IniRead, data, %SelectedFile%, %section%, Data
-            IniRead, name, %SelectedFile%, %section%, Name, % ""
+            IniRead, keyName, %filePath%, %section%, KeyName
+            IniRead, type, %filePath%, %section%, Type
+            IniRead, data, %filePath%, %section%, Data
+            IniRead, name, %filePath%, %section%, Name, % ""
             macros[sc] := {type: type, data: data, keyName: keyName, name: name}
         }
     }
     RefreshListView(neutron)
-    MsgBox, 64, Success, Configuration loaded successfully.
+    return true
 }
+
+SaveConfigToFile(neutron, event := "") {
+    FileSelectFile, SelectedFile, S16, %A_ScriptDir%\macro_config.ini, Save Config As, INI Documents (*.ini)
+    if (SelectedFile = "")
+        return
+    if !InStr(SelectedFile, ".ini")
+        SelectedFile .= ".ini"
+        
+    if (SaveConfig(neutron, SelectedFile)) {
+        MsgBox, 64, Success, Configuration saved successfully to:`n%SelectedFile%
+    } else {
+        MsgBox, 16, Error, Failed to save configuration to:`n%SelectedFile%
+    }
+}
+
+LoadConfigFromFile(neutron, event := "") {
+    FileSelectFile, SelectedFile, 3, %A_ScriptDir%, Load Config, INI Documents (*.ini)
+    if (SelectedFile = "")
+        return
+    
+    if (LoadConfig(neutron, SelectedFile)) {
+        MsgBox, 64, Success, Configuration loaded successfully.
+    } else {
+        MsgBox, 16, Error, Invalid or empty config file.
+    }
+}
+
+; ---------------------------------------------------------
+; Hotkeys
+; ---------------------------------------------------------
+
+; Ctrl + F12 to toggle macro keyboard enabling and selection
+^F12::
+    ToggleMacro(neutron)
+    return
+
+SendTextWithKeys(data) {
+    pos := 1
+    while (pos <= StrLen(data)) {
+        nextBrace := InStr(data, "{", , pos)
+        if (nextBrace == 0) {
+            remaining := SubStr(data, pos)
+            SendInput, % "{Raw}" . remaining
+            break
+        }
+        
+        if (nextBrace > pos) {
+            before := SubStr(data, pos, nextBrace - pos)
+            SendInput, % "{Raw}" . before
+        }
+        
+        closeBrace := InStr(data, "}", , nextBrace)
+        if (closeBrace == 0) {
+            remaining := SubStr(data, nextBrace)
+            SendInput, % "{Raw}" . remaining
+            break
+        }
+        
+        tag := SubStr(data, nextBrace, closeBrace - nextBrace + 1)
+        tagName := SubStr(tag, 2, StrLen(tag) - 2)
+        
+        StringLower, lowerTagName, tagName
+        
+        isKey := false
+        if (lowerTagName = "tab" || lowerTagName = "enter" || lowerTagName = "space" 
+            || lowerTagName = "esc" || lowerTagName = "escape" || lowerTagName = "backspace" || lowerTagName = "bs"
+            || lowerTagName = "delete" || lowerTagName = "del" || lowerTagName = "insert" || lowerTagName = "ins"
+            || lowerTagName = "up" || lowerTagName = "down" || lowerTagName = "left" || lowerTagName = "right"
+            || lowerTagName = "home" || lowerTagName = "end" || lowerTagName = "pgup" || lowerTagName = "pgdn"
+            || RegExMatch(lowerTagName, "^f\d{1,2}$")) {
+            isKey := true
+        }
+        
+        if (isKey) {
+            SendInput, % tag
+        } else {
+            SendInput, % "{Raw}" . tag
+        }
+        
+        pos := closeBrace + 1
+    }
+}
+
+; ---------------------------------------------------------
+; System Tray Menu Handlers
+; ---------------------------------------------------------
+
+ShowManager:
+    neutron.Show()
+    return
+
+TrayToggleMacro:
+    ToggleMacro(neutron)
+    return
+
+ExitAppLabel:
+    defaultConfig := A_ScriptDir . "\default_config.ini"
+    SaveConfig(neutron, defaultConfig)
+    ExitApp

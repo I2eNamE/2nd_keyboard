@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="200" height="200">
+  <defs>
+    <!-- Clip to circle for globe interior -->
+    <clipPath id="globeClip">
+      <circle cx="50" cy="50" r="32"/>
+    </clipPath>
+  </defs>
+
+  <!-- Globe outline circle -->
+  <circle cx="50" cy="50" r="32" fill="none" stroke="#1a6bbf" stroke-width="5"/>
+
+  <!-- Vertical center ellipse (longitude) -->
+  <ellipse cx="50" cy="50" rx="15" ry="32" fill="none" stroke="#1a6bbf" stroke-width="3.5" clip-path="url(#globeClip)"/>
+
+  <!-- Horizontal latitude lines -->
+  <line x1="18" y1="35" x2="82" y2="35" stroke="#1a6bbf" stroke-width="3.5" clip-path="url(#globeClip)"/>
+  <line x1="18" y1="50" x2="82" y2="50" stroke="#1a6bbf" stroke-width="3.5" clip-path="url(#globeClip)"/>
+  <line x1="18" y1="65" x2="82" y2="65" stroke="#1a6bbf" stroke-width="3.5" clip-path="url(#globeClip)"/>
+
+  <!-- Vertical longitude lines -->
+  <line x1="50" y1="18" x2="50" y2="82" stroke="#1a6bbf" stroke-width="3.5" clip-path="url(#globeClip)"/>
+
+  <!-- Orbit ring — back half (behind globe, drawn first, lighter) -->
+  <ellipse cx="50" cy="54" rx="45" ry="16"
+           fill="none"
+           stroke="#1a6bbf" stroke-width="5"
+           stroke-dasharray="70 71"
+           stroke-dashoffset="0"
+           transform="rotate(-22 50 54)"/>
+
+  <!-- Orbit ring — front half (in front of globe) -->
+  <ellipse cx="50" cy="54" rx="45" ry="16"
+           fill="none"
+           stroke="#1a6bbf" stroke-width="5"
+           stroke-dasharray="71 70"
+           stroke-dashoffset="-70"
+           transform="rotate(-22 50 54)"/>
+
+  <!-- Orbit ring arrowhead left tip -->
+  <polygon points="10,42 5,36 18,40" fill="#1a6bbf" transform="rotate(-22 50 54)"/>
+  <!-- Orbit ring arrowhead right tip -->
+  <polygon points="90,66 95,72 82,68" fill="#1a6bbf" transform="rotate(-22 50 54)"/>
+</svg>

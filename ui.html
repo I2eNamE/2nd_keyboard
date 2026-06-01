@@ -4,17 +4,25 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta charset="UTF-8">
     <style>
-        body { 
+        * { box-sizing: border-box; }
+
+        html, body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             background-color: #f9fafb; 
             color: #111827; 
             margin: 0; 
             padding: 0; 
             user-select: none;
+            height: 100%;
+            overflow: hidden;
         }
 
         .app-container {
-            padding: 20px;
+            padding: 16px 20px;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 44px); /* subtract window-header height */
+            overflow: hidden;
         }
 
         /* macOS Style Window Title Bar */
@@ -26,15 +34,15 @@
             background-color: #ffffff;
             border-bottom: 1px solid #e5e7eb;
             user-select: none;
-            height: 20px;
+            min-height: 44px;
             position: relative;
         }
 
         .window-controls {
-            display: inline-block;
+            display: flex;
+            align-items: center;
             white-space: nowrap;
             z-index: 10;
-            font-size: 0; /* Remove whitespace gap between inline-blocks */
         }
 
         .control-btn {
@@ -81,12 +89,12 @@
         .window-title {
             position: absolute;
             left: 50%;
-            transform: translateX(-50%);
+            top: 50%;
+            transform: translate(-50%, -50%);
             font-size: 13px;
             font-weight: 600;
             color: #4b5563;
             pointer-events: none;
-            line-height: 20px; /* Align vertically with container */
         }
 
         /* Top Bar */
@@ -94,11 +102,12 @@
             display: flex; 
             align-items: center; 
             gap: 15px; 
-            margin-bottom: 25px; 
+            margin-bottom: 14px; 
             background: #ffffff;
-            padding: 15px 20px;
+            padding: 12px 18px;
             border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            flex-shrink: 0;
         }
 
         .btn { 
@@ -134,35 +143,53 @@
         .main-content { 
             display: flex; 
             gap: 20px; 
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
         }
 
         .card {
             background: #ffffff;
             border-radius: 8px;
-            padding: 20px;
+            padding: 16px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
 
-        .left-col { flex: 1; width: 45%; }
-        .right-col { flex: 1; width: 55%; }
+        .left-col { 
+            flex: 1; 
+            width: 45%; 
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        .right-col { 
+            flex: 1; 
+            width: 55%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 0;
+        }
         
         h2 {
             margin-top: 0;
             font-size: 18px;
             color: #111827;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
             border-bottom: 1px solid #e5e7eb;
-            padding-bottom: 10px;
+            padding-bottom: 8px;
+            flex-shrink: 0;
         }
 
         /* Macro List */
         .macro-list { 
             width: 100%; 
-            height: 250px; 
+            flex: 1;
+            min-height: 0;
             overflow-y: auto; 
             border: 1px solid #e5e7eb; 
             border-radius: 6px;
-            margin-bottom: 15px; 
+            margin-bottom: 12px; 
             background: #fafafa;
         }
 
@@ -184,9 +211,27 @@
 
         .macro-icon {
             float: left;
-            font-size: 20px;
             margin-right: 12px;
-            line-height: 32px;
+            display: flex;
+            align-items: center;
+            height: 32px;
+        }
+
+        .macro-svg-icon {
+            width: 20px;
+            height: 20px;
+            opacity: 0.65;
+            transition: opacity 0.2s, transform 0.2s, filter 0.2s;
+        }
+
+        .macro-item:hover .macro-svg-icon {
+            opacity: 0.95;
+            transform: scale(1.05);
+        }
+
+        .macro-item.selected .macro-svg-icon {
+            opacity: 1;
+            filter: invert(27%) sepia(91%) saturate(2252%) hue-rotate(233deg) brightness(91%) contrast(92%); /* Colorize to Indigo #4f46e5 */
         }
 
         .macro-content {
@@ -208,28 +253,28 @@
         }
         
         /* Forms */
-        .form-group { margin-bottom: 15px; }
+        .form-group { margin-bottom: 10px; }
         .form-group label { 
             display: block; 
-            margin-bottom: 6px; 
+            margin-bottom: 4px; 
             font-weight: 600; 
-            font-size: 13px;
+            font-size: 12px;
             color: #6b7280;
         }
         .form-control { 
             width: 100%; 
-            padding: 10px; 
+            padding: 8px 10px; 
             border: 1px solid #e5e7eb; 
             border-radius: 6px; 
             box-sizing: border-box; 
-            font-size: 14px;
+            font-size: 13px;
             font-family: inherit;
             outline: none;
             transition: border-color 0.2s;
         }
         .form-control:focus { border-color: #4f46e5; }
         
-        .actions { display: flex; gap: 10px; margin-top: 20px; }
+        .actions { display: flex; gap: 10px; margin-top: 12px; flex-shrink: 0; }
         .btn-save { background-color: #4f46e5; flex: 2; }
         .btn-save:hover { background-color: #4338ca; }
         .btn-clear { background-color: #e5e7eb; color: #111827; flex: 1; }
@@ -239,9 +284,10 @@
             display: flex; 
             justify-content: flex-end; 
             gap: 10px; 
-            margin-top: 20px; 
-            padding-top: 15px;
+            margin-top: auto;
+            padding-top: 10px;
             border-top: 1px solid #e5e7eb;
+            flex-shrink: 0;
         }
         .btn-outline { 
             background-color: transparent; 
@@ -273,10 +319,12 @@
     
     <div class="app-container">
         <div class="top-bar">
-        <button class="btn btn-select" onclick="ahk.SelectKeyboard()">Select Keyboard</button>
-        <button id="toggleBtn" class="btn btn-toggle" onclick="ahk.ToggleMacro()">Enable Macro</button>
-        <div class="status-box" id="statusLabel">Macro Status:<br><b>Disabled</b></div>
-    </div>
+            <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
+                <button id="toggleBtn" class="btn btn-toggle" onclick="ahk.ToggleMacro()">Enable Macro</button>
+                <span style="font-size: 11px; color: #6b7280; font-weight: 500; padding-left: 2px;">Shortcut: Ctrl + F12</span>
+            </div>
+            <div class="status-box" id="statusLabel">Macro Status:<br><b>Disabled</b></div>
+        </div>
     
     <div class="main-content">
         <div class="card left-col">
@@ -300,6 +348,7 @@
                 <label>Step 2: Action</label>
                 <select id="actionType" class="form-control">
                     <option value="Program">Program / Path</option>
+                    <option value="Folder">Open Folder</option>
                     <option value="Website">Website URL</option>
                     <option value="Text">Send Text</option>
                 </select>
@@ -307,6 +356,7 @@
             <div class="form-group">
                 <label>Step 3: Details</label>
                 <input type="text" id="actionData" class="form-control" placeholder="Enter path, url or text...">
+                <span id="detailsHelp" style="font-size: 11px; color: #6b7280; display: block; margin-top: 4px; line-height: 1.4;"></span>
             </div>
             <div class="form-group">
                 <label>Step 4: Macro Name (Optional)</label>
@@ -328,21 +378,53 @@
     <script>
         function handleKeyDown(e) {
             e.preventDefault();
-            var keyName = e.key; 
+            var keyName = e.key;
+            var loc = e.location;
+            var keyCode = e.keyCode || e.which || 0;
             
-            if (keyName.length === 1) {
+            // Handle Modifiers (Left/Right distinction via location in IE & Modern Browsers)
+            if (keyName === "Alt") {
+                keyName = (loc === 2) ? "RAlt" : "LAlt";
+            } else if (keyName === "Control") {
+                keyName = (loc === 2) ? "RCtrl" : "LCtrl";
+            } else if (keyName === "Shift") {
+                keyName = (loc === 2) ? "RShift" : "LShift";
+            } else if (keyName === "Win" || keyName === "Meta") {
+                keyName = (loc === 2) ? "RWin" : "LWin";
+            }
+            // Handle Numpad keys in older engines like Trident/IE
+            else if (keyCode >= 96 && keyCode <= 105) {
+                keyName = "Numpad" + (keyCode - 96);
+            } else if (keyCode === 110) {
+                keyName = "NumpadDot";
+            } else if (keyCode === 111) {
+                keyName = "NumpadDiv";
+            } else if (keyCode === 106) {
+                keyName = "NumpadMult";
+            } else if (keyCode === 109) {
+                keyName = "NumpadSub";
+            } else if (keyCode === 107) {
+                keyName = "NumpadAdd";
+            } else if (keyCode === 13 && loc === 3) {
+                keyName = "NumpadEnter";
+            }
+            // Handle standard key lengths
+            else if (keyName.length === 1) {
                 keyName = keyName.toUpperCase();
             } else if (keyName === " ") {
                 keyName = "Space";
             }
             
+            // Modern browser fallback using e.code if available
             var code = e.code || "";
-            if (code.indexOf("Numpad") === 0) {
-                keyName = code;
-            } else if (code.indexOf("Digit") === 0) {
-                keyName = code.replace("Digit", "");
-            } else if (code.indexOf("Key") === 0) {
-                keyName = code.replace("Key", "");
+            if (code) {
+                if (code.indexOf("Numpad") === 0) {
+                    keyName = code;
+                } else if (code.indexOf("Digit") === 0) {
+                    keyName = code.replace("Digit", "");
+                } else if (code.indexOf("Key") === 0) {
+                    keyName = code.replace("Key", "");
+                }
             }
             
             document.getElementById('inputKey').value = keyName;
@@ -359,6 +441,52 @@
                 ahk.SetSelectedScanCode(sc);
             }
         }
+        
+        function updateHelpText() {
+            var actionType = document.getElementById("actionType").value;
+            var actionData = document.getElementById("actionData");
+            var detailsHelp = document.getElementById("detailsHelp");
+            
+            if (actionType === "Program") {
+                actionData.placeholder = "e.g. C:\\Program Files\\Notepad++\\notepad++.exe";
+                detailsHelp.innerHTML = "Enter the absolute path to the program (.exe) or file you want to open.";
+            } else if (actionType === "Folder") {
+                actionData.placeholder = "e.g. C:\\Users\\Name\\Documents";
+                detailsHelp.innerHTML = "Enter the path of the folder you want to open in File Explorer.";
+            } else if (actionType === "Website") {
+                actionData.placeholder = "e.g. https://www.youtube.com";
+                detailsHelp.innerHTML = "Enter the website URL to open in Chrome or default browser.";
+            } else if (actionType === "Text") {
+                actionData.placeholder = "e.g. username{Tab}password{Enter}";
+                detailsHelp.innerHTML = "Enter text to type. Supports special keys: <b>{Tab}</b>, <b>{Enter}</b>, <b>{Space}</b>, <b>{Esc}</b>, etc.";
+            }
+        }
+
+        // Attach event listener and run once on page load
+        document.getElementById("actionType").addEventListener("change", updateHelpText);
+        window.addEventListener("load", function() {
+            updateHelpText();
+            
+            // Also listen to form clear button click to keep it synced
+            var clearBtn = document.querySelector(".btn-clear");
+            if (clearBtn) {
+                var oldClick = clearBtn.onclick;
+                clearBtn.onclick = function(e) {
+                    if (oldClick) oldClick(e);
+                    setTimeout(updateHelpText, 50);
+                };
+            }
+            
+            // Sync on click of edit selected button
+            var editBtn = document.querySelector("button[onclick*='OnEditSelected']");
+            if (editBtn) {
+                var oldEditClick = editBtn.onclick;
+                editBtn.onclick = function(e) {
+                    if (oldEditClick) oldEditClick(e);
+                    setTimeout(updateHelpText, 50);
+                };
+            }
+        });
     </script>
 </body>
 </html>
